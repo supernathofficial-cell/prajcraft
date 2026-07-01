@@ -1273,8 +1273,7 @@ window.handleCountryChange = function() {
     } else {
         if(upiWrapper) upiWrapper.classList.remove('hidden');
         if(codWrapper) codWrapper.classList.remove('hidden');
-        if(paypalWrapper) paypalWrapper.classList.remove('hidden');
-        if(paypalWrapper) paypalWrapper.classList.add('hidden', 'md:block');
+        if(paypalWrapper) paypalWrapper.classList.remove('hidden', 'md:block');
         
         if (shippingLabel) shippingLabel.textContent = 'Domestic Shipping';
         if (summaryShipping) summaryShipping.textContent = 'FREE';
