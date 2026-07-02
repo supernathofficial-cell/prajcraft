@@ -843,18 +843,9 @@ window.prepareOrderPayload = async function() {
 
     let { data: user } = await window.supabase.from('users').select('*').eq('id', session.user.id).maybeSingle();
     
-    // Just-in-time DB injection for users caught in old OAuth redirect gap
     if (!user) {
-        const fullName = session.user.user_metadata?.full_name || session.user.email.split('@')[0];
-        const avatar = session.user.user_metadata?.avatar_url || null;
-        await window.supabase.from('users').insert([{
-            id: session.user.id,
-            email: session.user.email,
-            role: 'customer',
-            full_name: fullName,
-            avatar_url: avatar
-        }]);
-        user = { id: session.user.id, email: session.user.email, full_name: fullName, phone: null };
+        window.showToast ? window.showToast("Critical Error: Your user profile is missing. Please log out and log in again.", 'error') : alert("Critical Error: User profile missing.");
+        return null;
     }
 
     const savedAddressId = document.getElementById('savedAddressId')?.value;

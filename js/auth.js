@@ -31,24 +31,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     if (session) {
-        // Google OAuth Redirect Handling & DB Injection (Handles if Supabase redirects to / or /login.html)
+        // Google OAuth Redirect Handling & Strict DB Injection
         if (window.location.pathname.endsWith('login.html') || window.location.hash.includes('access_token')) {
-            // Check if user already exists by email to prevent duplicates
-            const { data: userRow } = await window.supabase.from('users').select('id').eq('id', session.user.id).maybeSingle();
+            console.log("=== BEGIN OAUTH PROVISIONING ===");
+            console.log("Auth User ID:", session.user.id);
             
-            if (!userRow) {
-                // Create ONE new customer record
-                const fullName = session.user.user_metadata?.full_name || session.user.email.split('@')[0];
-                const avatar = session.user.user_metadata?.avatar_url || null;
-                
-                await window.supabase.from('users').insert([{
-                    id: session.user.id,
-                    email: session.user.email,
-                    role: 'customer',
-                    full_name: fullName,
-                    avatar_url: avatar
-                }]);
+            const fullName = session.user.user_metadata?.full_name || session.user.email.split('@')[0];
+            const avatar = session.user.user_metadata?.avatar_url || null;
+            
+            // 1. Perform UPSERT
+            const { data: upsertData, error: upsertErr } = await window.supabase.from('users').upsert({
+                id: session.user.id,
+                full_name: fullName,
+                avatar_url: avatar
+            }, { onConflict: 'id' }).select();
+            
+            console.log("UPSERT Result Data:", upsertData);
+            if (upsertErr) {
+                console.error("UPSERT Error:", upsertErr);
+                alert("Critical Provisioning Error: UPSERT failed.\n" + JSON.stringify(upsertErr));
+                return; // Block checkout/redirect
             }
+            
+            // 2. Verify row exists
+            const { data: verifyData, error: verifyErr } = await window.supabase
+                .from('users')
+                .select('id')
+                .eq('id', session.user.id)
+                .maybeSingle();
+                
+            if (verifyErr || !verifyData) {
+                console.error("Verification SELECT Error:", verifyErr || "Row not found after UPSERT.");
+                alert("Critical Provisioning Error: Verification failed.\nQuery: SELECT id FROM public.users WHERE id = '" + session.user.id + "'\nError: " + JSON.stringify(verifyErr));
+                return; // Block checkout/redirect
+            }
+            
+            console.log("Verified public.users ID:", verifyData.id);
+            console.log("=== OAUTH PROVISIONING SUCCESS ===");
             
             // Intelligently redirect to previous page or profile, cleaning up the URL hash
             const returnUrl = sessionStorage.getItem('returnUrl') || 'profile.html';
